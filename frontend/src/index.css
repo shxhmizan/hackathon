@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bantu-orange: #FF6B35;
+  --color-bantu-orangeLight: #FFE3D8;
+  --color-bantu-teal: #2EC4B6;
+  --color-bantu-dark: #1A1D21;
+  --color-bantu-gray: #F4F6F8;
+
+  --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 0 20px rgba(255, 107, 53, 0.4);
+}
+
+/* Font */
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Hide scrollbar */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth entrance animation */
+.fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Chat dotted background */
+.chat-bg {
+  background-color: #F4F6F8;
+  background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Custom Leaflet marker icon - remove default styling */
+.custom-div-icon {
+  background: none !important;
+  border: none !important;
+}
+
+@keyframes ping {
+
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Custom Leaflet Popup */
+.leaflet-popup-content-wrapper {
+  border-radius: 1.25rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(10px);
+}
+
+.leaflet-popup-content {
+  margin: 16px !important;
+  width: 220px !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.95) !important;
+}
