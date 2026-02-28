@@ -6,8 +6,8 @@ import {
 import { storage } from "./firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 
-const API_BASE = "http://localhost:3000"
-
+//const API_BASE = "http://localhost:3000"
+const API_BASE = import.meta.env.VITE_API_URL
 // ========== Backend API ==========
 
 export async function createJobAI(prompt) {
