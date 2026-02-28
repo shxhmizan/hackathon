@@ -229,7 +229,7 @@ Run frontend:
 npm run dev
 ```
 
-##🔹 3️⃣ Setup Backend
+## 🔹 3️⃣ Setup Backend
 cd server
 npm install
 
@@ -239,23 +239,8 @@ GEMINI_API_KEY=your_gemini_key
 PORT=5000
 
 Run backend:
+```bash
+node server.js
+```
 
-node index.js
 
-##🔹 4️⃣ Firebase Configuration
-
-Create Firebase project
-
-Enable:
-
-Authentication (Email/Password)
-
-Firestore
-
-Storage
-
-Add Web App
-
-Copy configuration into frontend .env
-
-Configure Firestore rules for development
