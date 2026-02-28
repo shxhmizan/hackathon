@@ -1,184 +1,171 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useAuth } from "../context/AuthContext"
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "../services/firebase"
+import { seedDummyData } from "../utils/seedDummyData"
 
 export default function ProfileScreen() {
-    const [dashTab, setDashTab] = useState("tugasan")
+    const { currentUser, logout } = useAuth()
+    const [leaderboard, setLeaderboard] = useState([])
+    const [myCompleted, setMyCompleted] = useState(0)
+    const [loadingBoard, setLoadingBoard] = useState(true)
+    const [seeding, setSeeding] = useState(false)
+    const [seedResult, setSeedResult] = useState(null)
 
-    const tabBtnBase = "flex-1 flex flex-col items-center py-3.5 gap-1.5 rounded-xl transition-all active:scale-95"
-    const tabBtnActive = "bg-orange-50/50 text-bantu-orange shadow-sm border border-orange-100/50"
-    const tabBtnInactive = "text-gray-400 hover:text-gray-600"
+    const userName = currentUser?.displayName || "User"
+    const userEmail = currentUser?.email || ""
+    const uid = currentUser?.uid
+
+    useEffect(() => {
+        async function fetch() {
+            try {
+                const jobsSnap = await getDocs(collection(db, "jobs"))
+                const all = jobsSnap.docs.map(d => d.data())
+                const completed = all.filter(j => j.status === "completed")
+
+                // Count by executor
+                const counts = {}
+                completed.forEach(j => { if (j.executor_id) counts[j.executor_id] = (counts[j.executor_id] || 0) + 1 })
+
+                // My count
+                setMyCompleted(counts[uid] || 0)
+
+                // Users
+                const usersSnap = await getDocs(collection(db, "users"))
+                const usersMap = {}
+                usersSnap.docs.forEach(d => { usersMap[d.id] = d.data() })
+
+                const board = Object.entries(counts)
+                    .map(([id, count]) => ({
+                        id, name: usersMap[id]?.name || id,
+                        avatar: usersMap[id]?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${id}`,
+                        completed: count,
+                    }))
+                    .sort((a, b) => b.completed - a.completed)
+                    .slice(0, 10)
+
+                setLeaderboard(board)
+            } catch (err) { console.error("Leaderboard:", err) }
+            setLoadingBoard(false)
+        }
+        fetch()
+    }, [uid])
+
+    async function handleSeed() {
+        setSeeding(true); setSeedResult(null)
+        try { setSeedResult(await seedDummyData()) }
+        catch (e) { setSeedResult({ message: "❌ " + e.message, skipped: true }) }
+        setSeeding(false)
+    }
+
+    const medals = [
+        { icon: "fa-crown", color: "text-yellow-500", bg: "bg-yellow-50" },
+        { icon: "fa-medal", color: "text-gray-400", bg: "bg-gray-50" },
+        { icon: "fa-medal", color: "text-amber-600", bg: "bg-amber-50" },
+    ]
 
     return (
         <div className="w-full min-h-screen bg-bantu-gray overflow-y-auto">
-            {/* Profile Header */}
+            {/* Header */}
             <div className="bg-gradient-to-b from-bantu-dark to-[#0f1115] text-white p-6 pt-8 sm:p-8 sm:pt-10 rounded-b-[2rem] sm:rounded-b-[3rem] shadow-soft relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-5 rounded-full blur-xl -mr-10 -mt-10"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-bantu-orange opacity-10 rounded-full blur-2xl -ml-8 -mb-8"></div>
-
                 <div className="max-w-3xl mx-auto">
                     <div className="relative z-10 flex justify-between items-center mt-2 fade-in-up">
                         <div className="flex items-center gap-4">
                             <div className="relative">
-                                <img
-                                    src="https://api.dicebear.com/7.x/avataaars/svg?seed=Shahmizan"
-                                    className="w-14 h-14 sm:w-16 sm:h-16 bg-white rounded-full border-[3px] border-bantu-orange shadow-glow"
-                                    alt="Shahmizan"
-                                />
-                                <div className="absolute -bottom-1 -right-1 bg-gradient-to-br from-yellow-400 to-orange-500 p-1.5 rounded-full border-2 border-[#0f1115] shadow-sm">
+                                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}`} className="w-14 h-14 sm:w-16 sm:h-16 bg-white rounded-full border-[3px] border-bantu-orange shadow-glow" alt={userName} />
+                                <div className="absolute -bottom-1 -right-1 bg-gradient-to-br from-yellow-400 to-orange-500 p-1.5 rounded-full border-2 border-[#0f1115]">
                                     <i className="fa-solid fa-star text-white text-[10px]"></i>
                                 </div>
                             </div>
                             <div>
-                                <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">Shahmizan</h2>
-                                <p className="text-xs text-bantu-orangeLight font-semibold">Lvl 5: Jiran Harapan</p>
+                                <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">{userName}</h2>
+                                <p className="text-xs text-gray-400 font-medium">{userEmail}</p>
                             </div>
                         </div>
-                        <div className="bg-white/10 p-2.5 rounded-2xl flex flex-col items-center backdrop-blur-md border border-white/10 px-4 cursor-pointer hover:bg-white/20 transition-colors active:scale-95">
-                            <i className="fa-solid fa-fire text-orange-400 text-xl animate-pulse"></i>
-                            <span className="font-extrabold text-lg mt-0.5 leading-none">
-                                7<span className="text-[10px] font-normal ml-1">Hari</span>
-                            </span>
-                        </div>
+                        <button onClick={logout} className="bg-white/10 px-4 py-2.5 rounded-xl text-xs font-bold text-white hover:bg-white/20 transition-all active:scale-95 border border-white/10">
+                            <i className="fa-solid fa-right-from-bracket mr-1.5"></i> Log Keluar
+                        </button>
                     </div>
 
-                    <div
-                        className="mt-6 sm:mt-8 bg-white/5 rounded-2xl p-4 flex justify-between items-center backdrop-blur-md border border-white/10 fade-in-up"
-                        style={{ animationDelay: "0.1s" }}
-                    >
-                        <div>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Total Bantu Points</p>
-                            <p className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">
-                                1,250 <span className="text-sm font-semibold text-gray-400">BP</span>
-                            </p>
+                    {/* Stats row */}
+                    <div className="mt-6 grid grid-cols-2 gap-3 fade-in-up" style={{ animationDelay: "0.1s" }}>
+                        <div className="bg-white/5 rounded-2xl p-4 backdrop-blur-md border border-white/10">
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Bantu Points</p>
+                            <p className="text-2xl font-black text-white">1,250 <span className="text-sm text-gray-400">BP</span></p>
                         </div>
-                        <button className="bg-gradient-to-r from-bantu-orange to-[#ff5112] text-white text-xs font-extrabold px-5 py-2.5 rounded-full shadow-glow hover:shadow-lg transition-all active:scale-95">
-                            Tebus
-                        </button>
+                        <div className="bg-white/5 rounded-2xl p-4 backdrop-blur-md border border-white/10">
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Kerja Diselesaikan</p>
+                            <p className="text-2xl font-black text-bantu-teal">{myCompleted} <span className="text-sm text-gray-400">tugas</span></p>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div className="max-w-3xl mx-auto px-4 sm:px-6">
-                {/* Dashboard Tabs */}
-                <div
-                    className="flex justify-around bg-white mt-6 rounded-2xl p-1.5 shadow-soft border border-gray-50 fade-in-up"
-                    style={{ animationDelay: "0.2s" }}
-                >
-                    <button
-                        onClick={() => setDashTab("tugasan")}
-                        className={`${tabBtnBase} ${dashTab === "tugasan" ? tabBtnActive : tabBtnInactive}`}
-                    >
-                        <i className="fa-solid fa-bullseye text-lg"></i>
-                        <span className="text-[11px] font-extrabold">Tugasan</span>
+                {/* Seed button */}
+                <div className="mt-6 fade-in-up" style={{ animationDelay: "0.15s" }}>
+                    <button onClick={handleSeed} disabled={seeding} className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl font-bold text-xs transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 border border-gray-200">
+                        {seeding ? <><i className="fa-solid fa-spinner fa-spin"></i> Menjana...</> : <><i className="fa-solid fa-database"></i> Seed Demo Data</>}
                     </button>
-                    <button
-                        onClick={() => setDashTab("dompet")}
-                        className={`${tabBtnBase} ${dashTab === "dompet" ? tabBtnActive : tabBtnInactive}`}
-                    >
-                        <i className="fa-solid fa-wallet text-lg"></i>
-                        <span className="text-[11px] font-bold">Dompet</span>
-                    </button>
-                    <button
-                        onClick={() => setDashTab("wira")}
-                        className={`${tabBtnBase} ${dashTab === "wira" ? tabBtnActive : tabBtnInactive}`}
-                    >
-                        <i className="fa-solid fa-trophy text-lg"></i>
-                        <span className="text-[11px] font-bold">Wira Lokal</span>
-                    </button>
+                    {seedResult && <p className={`mt-2 text-center text-xs font-semibold ${seedResult.skipped ? "text-yellow-600" : "text-green-600"}`}>{seedResult.message}</p>}
                 </div>
 
-                {/* Dashboard Content */}
-                <div className="py-5 pb-24 md:pb-8">
-                    {/* Tugasan Tab */}
-                    {dashTab === "tugasan" && (
-                        <div className="fade-in-up">
-                            <div className="bg-white rounded-[1.5rem] p-5 shadow-soft border border-gray-100 hover:shadow-lg transition-shadow">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <span className="text-[9px] font-extrabold text-bantu-teal bg-teal-50 px-2.5 py-1 rounded-md uppercase tracking-wider mb-2 block w-fit border border-teal-100">
-                                            Sedang Berjalan
+                {/* Leaderboard */}
+                <div className="mt-6 mb-8 fade-in-up" style={{ animationDelay: "0.2s" }}>
+                    <h3 className="font-extrabold text-bantu-dark text-lg mb-4 flex items-center gap-2">
+                        <i className="fa-solid fa-trophy text-yellow-500"></i> Wira Lokal — Top 10
+                    </h3>
+
+                    {loadingBoard ? (
+                        <div className="text-center py-10"><i className="fa-solid fa-spinner fa-spin text-xl text-bantu-orange"></i></div>
+                    ) : leaderboard.length === 0 ? (
+                        <div className="text-center py-10 bg-white rounded-2xl border border-gray-100">
+                            <i className="fa-solid fa-users text-3xl text-gray-200 mb-3"></i>
+                            <p className="text-gray-400 font-semibold text-sm">Tiada data lagi</p>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-2xl shadow-soft border border-gray-100 overflow-hidden">
+                            {leaderboard.map((u, i) => {
+                                const isMe = uid && u.id === uid
+                                const isTop3 = i < 3
+                                return (
+                                    <div key={u.id} className={`flex items-center justify-between p-4 transition-colors ${isMe ? "bg-gradient-to-r from-orange-50 to-white border-l-4 border-bantu-orange"
+                                            : isTop3 ? `${medals[i].bg} border-l-4 border-transparent`
+                                                : i < leaderboard.length - 1 ? "border-b border-gray-50 hover:bg-gray-50" : "hover:bg-gray-50"
+                                        }`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-8 text-center">
+                                                {isTop3 ? <i className={`fa-solid ${medals[i].icon} ${medals[i].color} text-lg drop-shadow-sm`}></i>
+                                                    : <span className="font-black text-gray-300 text-sm">#{i + 1}</span>}
+                                            </div>
+                                            <img src={u.avatar} className={`w-10 h-10 bg-gray-100 rounded-full ${isMe ? "border-2 border-bantu-orange shadow-sm" : "border border-gray-200"}`} alt={u.name} />
+                                            <span className={`font-bold text-sm ${isMe ? "text-bantu-orange font-extrabold" : "text-gray-800"}`}>
+                                                {u.name} {isMe && <span className="text-[10px] text-gray-400">(Anda)</span>}
+                                            </span>
+                                        </div>
+                                        <span className={`text-xs font-black px-3 py-1 rounded-lg ${isMe ? "bg-bantu-orange text-white shadow-sm" : isTop3 ? "bg-white text-gray-600 shadow-sm border border-gray-100" : "bg-gray-100 text-gray-500"}`}>
+                                            {u.completed} <i className="fa-solid fa-check-circle ml-1"></i>
                                         </span>
-                                        <h4 className="font-extrabold text-gray-800 text-lg leading-tight">Beli Barang Dapur</h4>
                                     </div>
-                                    <span className="font-black text-bantu-teal bg-teal-50 px-3 py-1.5 rounded-xl text-sm border border-teal-100">
-                                        RM 15
-                                    </span>
-                                </div>
-                                <div className="flex items-center text-xs text-gray-500 mb-5 gap-2 font-semibold">
-                                    <i className="fa-regular fa-clock text-orange-400"></i> Due: Hari ini, 5:00 PM
-                                </div>
-                                <div className="w-full bg-gray-100 rounded-full h-2.5 mb-2.5 overflow-hidden">
-                                    <div className="bg-gradient-to-r from-bantu-teal to-teal-400 h-full rounded-full w-[60%] relative">
-                                        <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/30 animate-pulse"></div>
-                                    </div>
-                                </div>
-                                <div className="flex justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                                    <span>Mula</span>
-                                    <span className="text-bantu-teal">Jalan</span>
-                                    <span>Siap</span>
-                                </div>
-                            </div>
+                                )
+                            })}
                         </div>
                     )}
+                </div>
 
-                    {/* Dompet Tab */}
-                    {dashTab === "dompet" && (
-                        <div className="fade-in-up">
-                            <div className="bg-gradient-to-br from-[#1E232A] to-[#2c333d] rounded-[1.5rem] p-6 text-white shadow-soft border border-gray-800 mb-5 relative overflow-hidden">
-                                <i className="fa-solid fa-wallet absolute -right-4 -bottom-4 text-8xl text-white opacity-5"></i>
-                                <p className="text-[11px] text-gray-400 mb-1 font-bold uppercase tracking-wider">Baki Boleh Keluar</p>
-                                <h2 className="text-3xl sm:text-4xl font-black mb-5 tracking-tight text-white">
-                                    RM 125<span className="text-xl text-gray-400 font-bold">.00</span>
-                                </h2>
-                                <div className="flex gap-3 relative z-10">
-                                    <button className="flex-1 bg-white text-bantu-dark py-3.5 rounded-xl font-extrabold text-sm hover:bg-gray-100 active:scale-95 transition-all shadow-sm">
-                                        Keluarkan
-                                    </button>
-                                    <button className="flex-1 bg-white/10 border border-white/20 text-white py-3.5 rounded-xl font-extrabold text-sm hover:bg-white/20 active:scale-95 transition-all backdrop-blur-sm">
-                                        Topup
-                                    </button>
-                                </div>
-                            </div>
+                {/* Dompet */}
+                <div className="mb-24 md:mb-8 fade-in-up" style={{ animationDelay: "0.3s" }}>
+                    <h3 className="font-extrabold text-bantu-dark text-lg mb-4 flex items-center gap-2"><i className="fa-solid fa-wallet text-bantu-teal"></i> Dompet</h3>
+                    <div className="bg-gradient-to-br from-[#1E232A] to-[#2c333d] rounded-2xl p-6 text-white shadow-soft border border-gray-800 relative overflow-hidden">
+                        <i className="fa-solid fa-wallet absolute -right-4 -bottom-4 text-8xl text-white opacity-5"></i>
+                        <p className="text-[11px] text-gray-400 mb-1 font-bold uppercase">Baki Boleh Keluar</p>
+                        <h2 className="text-3xl font-black mb-5">RM 125<span className="text-xl text-gray-400">.00</span></h2>
+                        <div className="flex gap-3 relative z-10">
+                            <button className="flex-1 bg-white text-bantu-dark py-3.5 rounded-xl font-extrabold text-sm active:scale-95 transition-all">Keluarkan</button>
+                            <button className="flex-1 bg-white/10 border border-white/20 text-white py-3.5 rounded-xl font-extrabold text-sm active:scale-95 transition-all">Topup</button>
                         </div>
-                    )}
-
-                    {/* Wira Lokal Tab */}
-                    {dashTab === "wira" && (
-                        <div className="fade-in-up">
-                            <div className="bg-white rounded-[1.5rem] shadow-soft border border-gray-100 p-2 overflow-hidden">
-                                <div className="flex items-center justify-between p-4 rounded-2xl mb-1 hover:bg-gray-50 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-black text-xl w-6 text-center text-yellow-500 drop-shadow-sm">#1</span>
-                                        <img
-                                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=AmirIzzat"
-                                            className="w-11 h-11 bg-gray-100 rounded-full border border-gray-200"
-                                            alt="Amir Izzat"
-                                        />
-                                        <span className="font-bold text-gray-800">Amir Izzat</span>
-                                    </div>
-                                    <span className="text-xs font-black text-gray-400 bg-gray-100 px-3 py-1 rounded-lg">2,450 BP</span>
-                                </div>
-                                <div className="flex items-center justify-between p-4 rounded-2xl mb-1 bg-gradient-to-r from-orange-50 to-white border border-orange-100 shadow-sm">
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-black text-xl w-6 text-center text-gray-400">#2</span>
-                                        <img
-                                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=Shahmizan"
-                                            className="w-11 h-11 bg-white rounded-full border-[2px] border-bantu-orange shadow-sm"
-                                            alt="Shahmizan"
-                                        />
-                                        <span className="font-extrabold text-bantu-orange">Shahmizan (Anda)</span>
-                                    </div>
-                                    <span className="text-xs font-black text-white bg-bantu-orange px-3 py-1 rounded-lg shadow-sm">
-                                        1,250 BP
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="mt-5 p-4 bg-orange-50/50 rounded-2xl border border-orange-100 text-center">
-                                <p className="text-xs text-bantu-orange font-semibold">
-                                    Selesaikan 2 lagi tugas untuk pintas <span className="font-extrabold">Amir Izzat</span>! 🔥
-                                </p>
-                            </div>
-                        </div>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>
